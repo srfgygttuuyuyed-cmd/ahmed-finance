@@ -26,13 +26,10 @@ jobs:
         shell: bash
         run: |
           mkdir -p extracted
-          ZIP=$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)
-          if [ -z "$ZIP" ]; then
-            echo "ERROR: No Android project ZIP found in repository root"
-            exit 1
-          fi
+          ZIP="AHMED_FINANCE_Android_FIXED.zip"
+          test -f "$ZIP" || { echo "ERROR: $ZIP not found"; exit 1; }
           unzip -q "$ZIP" -d extracted
-          PROJECT_SETTINGS=$(find extracted -type f -name settings.gradle -o -name settings.gradle.kts | head -n 1)
+          PROJECT_SETTINGS=$(find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)
           if [ -z "$PROJECT_SETTINGS" ]; then
             echo "ERROR: settings.gradle or settings.gradle.kts not found in ZIP"
             find extracted -maxdepth 5 -type f
