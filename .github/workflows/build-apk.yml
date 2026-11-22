@@ -12,32 +12,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unzip project
-        run: |
-          mkdir project
-          unzip -o *.zip -d project
-          find project -name build.gradle -print
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-  uses: android-actions/setup-android@v4
-  with:
-    packages: platform-tools
+      - name: Extract Android project
+        run: |
+          mkdir extracted
+          ZIP=$(find . -maxdepth 1 -name '*.zip' | head -n 1)
+          test -n "$ZIP"
+          unzip -q "$ZIP" -d extracted
+          find extracted -maxdepth 4 -type f | head -80
+          WRAPPER=$(find extracted -type f -name gradlew | head -n 1)
+          if [ -z "$WRAPPER" ]; then
+            echo "ERROR: gradlew not found in ZIP"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$WRAPPER")" >> "$GITHUB_ENV"
+          chmod +x "$WRAPPER"
+
+      - name: Install Android SDK packages
+        run: |
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER=$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort -V | tail -n 1)
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Build APK
         run: |
-          cd project
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          cd "$PROJECT_DIR"
+          ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: AHMED-FINANCE-debug-apk
-          path: project/**/build/outputs/apk/debug/*.apk
+          name: AHMED-FINANCE-APK
+          path: extracted/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
           
